@@ -1,0 +1,479 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>3 Levels to Win!!!</title>
+
+<style>
+body{
+  margin:0;
+  font-family:-apple-system,BlinkMacSystemFont,sans-serif;
+  background:linear-gradient(135deg,#ffdde1,#ee9ca7);
+  color:#fff;
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  min-height:100vh;
+  padding:20px;
+  overflow:hidden;
+}
+
+.card{
+  width:100%;
+  max-width:520px;
+  background:rgba(255,255,255,0.15);
+  padding:20px;
+  border-radius:20px;
+  text-align:center;
+  backdrop-filter:blur(10px);
+}
+
+button{
+  padding:12px 16px;
+  border:none;
+  border-radius:12px;
+  font-size:16px;
+  cursor:pointer;
+  margin:6px;
+}
+
+.primary{
+  background:#fff;
+  color:#ff3f6b;
+  font-weight:800;
+}
+
+.secondary{
+  background:rgba(255,255,255,0.30);
+  color:#fff;
+}
+
+.hidden{ display:none; }
+
+.letters{
+  display:grid;
+  grid-template-columns:repeat(7,1fr);
+  gap:6px;
+  margin-top:10px;
+}
+
+.key{
+  padding:10px 0;
+  background:rgba(255,255,255,0.30);
+  border-radius:10px;
+  cursor:pointer;
+  user-select:none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.key.used{
+  opacity:0.4;
+  pointer-events:none;
+}
+
+.memory-grid{
+  display:grid;
+  grid-template-columns:repeat(4,1fr);
+  gap:10px;
+  margin-top:15px;
+}
+
+.memory-card{
+  aspect-ratio:1;
+  border-radius:14px;
+  background:rgba(255,255,255,0.30);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-size:28px;
+  cursor:pointer;
+  user-select:none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.memory-card.flipped{
+  background:#fff;
+  color:#ff3f6b;
+}
+
+.memory-card.matched{
+  background:#ffd0d8;
+  color:#ff3f6b;
+}
+
+.ttt{
+  display:grid;
+  grid-template-columns:repeat(3,1fr);
+  gap:8px;
+  margin-top:10px;
+}
+
+.square{
+  aspect-ratio:1;
+  border-radius:14px;
+  background:rgba(255,255,255,0.30);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-size:36px;
+  cursor:pointer;
+  user-select:none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.confetti-piece{
+  position:fixed;
+  width:10px;
+  height:14px;
+  top:-10px;
+  border-radius:3px;
+  animation:fall 2s linear forwards;
+  z-index:0;
+}
+
+@keyframes fall{
+  to{
+    transform:translateY(110vh) rotate(720deg);
+    opacity:0;
+  }
+}
+
+.small{
+  font-size:14px;
+  opacity:0.95;
+}
+</style>
+</head>
+
+<body>
+<div class="card">
+
+  <!-- SCREEN 0 -->
+  <div id="screen0">
+    <h1>Hi Ananya!</h1>
+    <p class="small">Beat 3 games to unlock super duper cool and important.</p>
+    <button class="primary" onclick="go(1)">Start</button>
+  </div>
+
+  <!-- SCREEN 1: HANGMAN -->
+  <div id="screen1" class="hidden">
+    <h1>Hangman</h1>
+    <div id="hangmanInfo" class="small"></div>
+    <div id="word"></div>
+    <div class="letters" id="letters"></div>
+
+    <button class="secondary" onclick="resetHangman()">Reset</button>
+    <button class="primary hidden" id="toMemory" onclick="go(2)">Next Level</button>
+  </div>
+
+  <!-- SCREEN 2: MEMORY -->
+  <div id="screen2" class="hidden">
+    <h1>Level 2: Memory Match</h1>
+    <p class="small" id="memoryInfo">Matching game!</p>
+    <div class="memory-grid" id="memoryGrid"></div>
+
+    <button class="secondary" onclick="initMemory()">Reset</button>
+    <button class="primary hidden" id="toTtt" onclick="go(3)">Next Level</button>
+  </div>
+
+  <!-- SCREEN 3: TTT -->
+  <div id="screen3" class="hidden">
+    <h1>Level 3: Tic Tac Toe</h1>
+    <p class="small">Tic Tac Toe! (orange juice??)</p>
+    <div class="ttt" id="board"></div>
+
+    <button class="secondary" onclick="resetTTT()">Reset</button>
+    <button class="primary hidden" id="toFinal" onclick="go(4)">Unlock Prize</button>
+  </div>
+
+  <!-- SCREEN 4: FINAL -->
+  <div id="screen4" class="hidden">
+    <h1>Ananya…</h1>
+    <h2>Will you be my Valentine? </h2>
+    <button class="primary" onclick="celebrate()">Yes!!</button>
+    <button class="secondary" onclick="moveNo(this)">No 🙃</button>
+    <p id="finalMsg" class="small"></p>
+  </div>
+
+</div>
+
+<script>
+/* ---------------------------
+   NAV
+--------------------------- */
+function go(n){
+  for(let i=0;i<=4;i++){
+    document.getElementById("screen"+i).classList.add("hidden");
+  }
+  document.getElementById("screen"+n).classList.remove("hidden");
+
+  // Initialize levels when you enter them (prevents hidden-init bugs)
+  if(n===1) { /* nothing */ }
+  if(n===2) { initMemory(); }
+  if(n===3) { resetTTT(); }
+}
+
+/* ---------------------------
+   LEVEL 1: HANGMAN (WORKING)
+--------------------------- */
+const secret = "HEART";
+let guessed = [];
+let wrong = [];
+let lives = 6;
+
+function renderHangman(){
+  let display = "";
+  for(const ch of secret){
+    display += guessed.includes(ch) ? ch + " " : "_ ";
+  }
+
+  document.getElementById("hangmanInfo").innerText =
+    `Lives: ${lives}  |  Wrong: ${wrong.length ? wrong.join(", ") : "None"}`;
+
+  document.getElementById("word").innerHTML = `<h2>${display}</h2>`;
+
+  if(!display.includes("_")){
+    document.getElementById("toMemory").classList.remove("hidden");
+  }
+
+  if(lives <= 0){
+    document.getElementById("word").innerHTML = `<h2>Game Over 😭</h2><p class="small">Hit Reset and try again.</p>`;
+    // disable keys
+    document.querySelectorAll(".key").forEach(k => k.classList.add("used"));
+    document.getElementById("toMemory").classList.add("hidden");
+  }
+}
+
+function setupHangman(){
+  const letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+  const container = document.getElementById("letters");
+  container.innerHTML = "";
+
+  letters.split("").forEach(l=>{
+    const div = document.createElement("div");
+    div.className = "key";
+    div.innerText = l;
+
+    div.addEventListener("click", () => {
+      if(div.classList.contains("used") || lives <= 0) return;
+      div.classList.add("used");
+
+      if(secret.includes(l)){
+        if(!guessed.includes(l)) guessed.push(l);
+      } else {
+        if(!wrong.includes(l)) wrong.push(l);
+        lives--;
+      }
+      renderHangman();
+    });
+
+    container.appendChild(div);
+  });
+}
+
+function resetHangman(){
+  guessed = [];
+  wrong = [];
+  lives = 6;
+  document.getElementById("toMemory").classList.add("hidden");
+  setupHangman();
+  renderHangman();
+}
+
+setupHangman();
+renderHangman();
+
+/* ---------------------------
+   LEVEL 2: MEMORY MATCH (FIXED)
+--------------------------- */
+const memoryGrid = document.getElementById("memoryGrid");
+const toTttBtn = document.getElementById("toTtt");
+const memoryInfo = document.getElementById("memoryInfo");
+
+// You can swap emojis to inside jokes if you want
+const EMOJIS = ["❤️","🌷","🥳","🐣","🤭","🦶"]; // 6 unique
+const PAIRS = 6; // number of pairs shown (6 pairs = 12 cards)
+
+let deck = [];
+let flipped = [];
+let matched = 0;
+let lockBoard = false;
+
+function shuffle(arr){
+  for(let i=arr.length-1;i>0;i--){
+    const j = Math.floor(Math.random()*(i+1));
+    [arr[i],arr[j]] = [arr[j],arr[i]];
+  }
+  return arr;
+}
+
+function initMemory(){
+  // Reset state every time you enter Level 2 (this is the big fix)
+  deck = shuffle([...EMOJIS.slice(0,PAIRS), ...EMOJIS.slice(0,PAIRS)]);
+  flipped = [];
+  matched = 0;
+  lockBoard = false;
+
+  toTttBtn.classList.add("hidden");
+  memoryInfo.innerText = "Matching Game!";
+  memoryGrid.innerHTML = "";
+
+  deck.forEach((symbol, idx) => {
+    const card = document.createElement("div");
+    card.className = "memory-card";
+    card.dataset.symbol = symbol;
+    card.dataset.index = String(idx);
+    card.innerText = ""; // face down
+
+    card.addEventListener("click", () => {
+      if(lockBoard) return;
+      if(card.classList.contains("flipped") || card.classList.contains("matched")) return;
+
+      flipCard(card);
+
+      if(flipped.length === 2){
+        checkMatch();
+      }
+    });
+
+    memoryGrid.appendChild(card);
+  });
+}
+
+function flipCard(card){
+  card.classList.add("flipped");
+  card.innerText = card.dataset.symbol;
+  flipped.push(card);
+}
+
+function unflipCards(a,b){
+  lockBoard = true;
+  setTimeout(() => {
+    a.classList.remove("flipped");
+    b.classList.remove("flipped");
+    a.innerText = "";
+    b.innerText = "";
+    flipped = [];
+    lockBoard = false;
+  }, 650);
+}
+
+function checkMatch(){
+  const [a,b] = flipped;
+  if(!a || !b) return;
+
+  if(a.dataset.symbol === b.dataset.symbol){
+    a.classList.add("matched");
+    b.classList.add("matched");
+    flipped = [];
+    matched++;
+
+    if(matched === PAIRS){
+      memoryInfo.innerText = "Yay!";
+      toTttBtn.classList.remove("hidden");
+    }
+  } else {
+    unflipCards(a,b);
+  }
+}
+
+/* ---------------------------
+   LEVEL 3: TIC TAC TOE (WITH AI)
+--------------------------- */
+
+const boardEl = document.getElementById("board");
+const toFinalBtn = document.getElementById("toFinal");
+
+let ttt = [];
+let tttOver = false;
+
+function resetTTT(){
+  ttt = ["","","","","","","","",""];
+  tttOver = false;
+  toFinalBtn.classList.add("hidden");
+  boardEl.innerHTML = "";
+
+  for(let i=0;i<9;i++){
+    const sq = document.createElement("div");
+    sq.className = "square";
+    sq.innerText = "";
+
+    sq.addEventListener("click", () => {
+      if(tttOver) return;
+      if(ttt[i] !== "") return;
+
+      // Player move
+      ttt[i] = "X";
+      sq.innerText = "X";
+
+      if(checkWinner("X")){
+        tttOver = true;
+        toFinalBtn.classList.remove("hidden");
+        return;
+      }
+
+      // Computer move after slight delay
+      setTimeout(aiMove, 300);
+    });
+
+    boardEl.appendChild(sq);
+  }
+}
+
+function aiMove(){
+  if(tttOver) return;
+
+  let empty = ttt
+    .map((val, idx) => val === "" ? idx : null)
+    .filter(v => v !== null);
+
+  if(empty.length === 0) return;
+
+  let choice = empty[Math.floor(Math.random()*empty.length)];
+  ttt[choice] = "O";
+  boardEl.children[choice].innerText = "O";
+
+  if(checkWinner("O")){
+    tttOver = true;
+    alert("Try again.");
+  }
+}
+
+function checkWinner(player){
+  const wins = [
+    [0,1,2],[3,4,5],[6,7,8],
+    [0,3,6],[1,4,7],[2,5,8],
+    [0,4,8],[2,4,6]
+  ];
+
+  return wins.some(([a,b,c]) =>
+    ttt[a] === player &&
+    ttt[b] === player &&
+    ttt[c] === player
+  );
+}
+
+/* ---------------------------
+   CONFETTI + FINAL
+--------------------------- */
+function celebrate(){
+  document.getElementById("finalMsg").innerText = "YAY I LOVE YOU";
+  for(let i=0;i<90;i++){
+    const piece = document.createElement("div");
+    piece.className = "confetti-piece";
+    piece.style.left = Math.random()*100 + "vw";
+    piece.style.background = ["#fff","#ffd0d8","#ff3f6b","#ffe8ee"][Math.floor(Math.random()*4)];
+    piece.style.animationDelay = (Math.random()*0.2) + "s";
+    document.body.appendChild(piece);
+    setTimeout(() => piece.remove(), 2100);
+  }
+}
+
+function moveNo(btn){
+  btn.style.position="relative";
+  btn.style.left=(Math.random()*120-60)+"px";
+  btn.style.top=(Math.random()*60-30)+"px";
+}
+</script>
+</body>
+</html>
